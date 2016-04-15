@@ -9,6 +9,8 @@ def checkImageIsValid(imageBin):
         return False
     imageBuf = np.fromstring(imageBin, dtype=np.uint8)
     img = cv2.imdecode(imageBuf, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return False
     imgH, imgW = img.shape[0], img.shape[1]
     if imgH * imgW == 0:
         return False
@@ -57,16 +59,37 @@ def createDataset(outputPath, imagePathList, labelList, lexiconList=None, checkV
         if lexiconList:
             lexiconKey = 'lexicon-%09d' % cnt
             cache[lexiconKey] = ' '.join(lexiconList[i])
-        if cnt % 1000 = 0:
+        if cnt % 1000 == 0:
             writeCache(env, cache)
             cache = {}
             print('Written %d / %d' % (cnt, nSamples))
         cnt += 1
     nSamples = cnt-1
-    cache['num-samples'] = nSamples
+    cache['num-samples'] = str(nSamples)
     writeCache(env, cache)
     print('Created dataset with %d samples' % nSamples)
 
 
 if __name__ == '__main__':
-    pass
+    outputPath = '/home/ubuntu/crnn/data/synth90k_train_lmdb/'
+    annotationFile = file('./annotation_train.txt')
+    lexiconFile = file('./lexicon.txt')
+    imagePath = []
+    idx = []
+    label = []
+    lexicon = []
+
+    line = lexiconFile.readline()
+    while line:
+        lexicon.append(line.strip())
+        line = lexiconFile.readline()
+
+    line = annotationFile.readline()
+    while line:
+        arr = line.strip().split()
+        imagePath.append(arr[0])
+        label.append(lexicon[int(arr[1])])
+        line = annotationFile.readline()
+
+    createDataset(outputPath, imagePath, label)
+
