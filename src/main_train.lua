@@ -13,6 +13,7 @@ require('inference')
 require('CtcCriterion')
 require('DatasetLmdb')
 require('LstmLayer')
+require('AttentionLayer')
 require('BiRnnJoin')
 require('SharedParallelTable')
 
