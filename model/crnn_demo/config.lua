@@ -69,8 +69,9 @@ function createModel(config)
     model:add(convRelu(7, true))                         -- 512x1x26
     model:add(nn.View(512, -1):setNumInputDims(3))       -- 512x26
     model:add(nn.Transpose({2, 3}))                      -- 26x512
-    model:add(nn.SplitTable(2, 3))
-    model:add(bidirectionalLSTM(512, 256, 256, nt))
+    model:add(nn.Reshape(512 * 2))                        -- 512x2x?
+    model:add(nn.AttentionLayer(512 * 2, 512 * 2, 512 * 2, nt))
+    model:add(bidirectionalLSTM(512 * 2, 256, 256, nt))
     model:add(bidirectionalLSTM(256, 256,  nl, nt))
     model:add(nn.SharedParallelTable(nn.LogSoftMax(), nt))
     model:add(nn.JoinTable(1, 1))
