@@ -40,11 +40,13 @@ function trainModel(model, criterion, trainSet, testSet)
         -- batch feed forward
         local batchSize = gConfig.valBatchSize
         local nFrame = input:size(1)
+        print(nFrame)
         local output = torch.Tensor(nFrame, gConfig.maxT, gConfig.nClasses+1)
         for i = 1, nFrame, batchSize do
             local actualBatchSize = math.min(batchSize, nFrame-i+1)
             local inputBatch = input:narrow(1,i,actualBatchSize)
             local outputBatch = model:forward(inputBatch)
+            print(i)
             output:narrow(1,i,actualBatchSize):copy(outputBatch)
         end
 

@@ -12,7 +12,7 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- there will 3 inputs: x (input), prev_c, prev_h
     local x, prev_c, prev_h = nn.Identity()(), nn.Identity()(), nn.Identity()()
     local inputs = {x, prev_c, prev_h}
-
+    -- x = nn.Reshape(nIn, true)(x)
     -- Construct the unit structure
     -- apply dropout, if any
     if dropout > 0 then x = nn.Dropout(dropout)(x) end
@@ -29,8 +29,8 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- decode the write inputs
     local in_transform   = nn.Narrow(2, 3*nHidden+1, nHidden)(all_input_sums)
     in_transform         = nn.Tanh()(in_transform)
-    local weight         = nn.Tanh()(nn.CAddTable()({x, prev_h})) -- tanh(x + prev_h)
-    weight               = nn.SoftMax():forward(weight)  -- exp(e) / sum {exp(e)}
+    local dot            = nn.CMulTable(){prev_h, x}
+    local weight         = nn.SoftMax()(dot)  -- exp(e) / sum {exp(e)}
     -- perform the LSTM update
     local next_c         = nn.CAddTable()({
                                nn.CMulTable()({forget_gate, prev_c}),
@@ -39,7 +39,7 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- gated cells from the output
     local next_h         = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})
     -- y (output)
-    local next_z         = nn.CMulTable()(weight, x) -- weight * x
+    local next_z         = nn.CMulTable()({weight, x}) -- weight * x
 
     -- there will be 3 outputs
     local outputs = {next_c, next_h, next_z}
@@ -121,10 +121,10 @@ end
 
 
 function AttentionLayer:updateOutput(input)
-    assert(type(input) == 'table')
     self.output = {}
     local T = #input
     local batchSize = input[1]:size(1)
+    -- print(input:size())
     self.initState[1]:resize(batchSize, self.nHidden):fill(0)
     self.initState[2]:resize(batchSize, self.nHidden):fill(0)
     if #self.clones == 0 then
@@ -163,7 +163,7 @@ end
 
 
 function AttentionLayer:updateGradInput(input, gradOutput)
-    assert(#input == #gradOutput)
+    -- assert(#input == #gradOutput)
     local T = #input
 
     if not self.reverse then

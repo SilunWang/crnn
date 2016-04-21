@@ -20,7 +20,7 @@ require('SharedParallelTable')
 
 -- configurations
 cutorch.setDevice(1)
-torch.setnumthreads(4)
+torch.setnumthreads(16)
 torch.setdefaulttensortype('torch.FloatTensor')
 local modelDir = arg[1]
 setupLogger(paths.concat(modelDir, 'log.txt'))
