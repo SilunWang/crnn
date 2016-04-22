@@ -1,4 +1,5 @@
 require 'mixture'
+require 'mask_table'
 
 function makeAttUnit(nIn, nHidden, dropout)
     --[[ Create LSTM unit, adapted from https://github.com/karpathy/char-rnn/blob/master/model/LSTM.lua
@@ -12,7 +13,7 @@ function makeAttUnit(nIn, nHidden, dropout)
     dropout = dropout or 0
 
     -- there will 3 inputs: x (input feature table (26 len)), prev_c, prev_h
-    local x, a, prev_c, prev_h = nn.Identity()(), nn.Identity()(), nn.Identity()(), nn.Identity()()
+    local x, a, prev_c, prev_h = nn.Identity()(), nn.Identity()(), nn.Identity()(), nn.Identity()(), nn.Identity()()
     local inputs = {x, a, prev_c, prev_h}
     -- Construct the unit structure
     -- apply dropout, if any
@@ -42,6 +43,7 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- y (output)
     local a_t            = nn.Transpose({2, 3})(a)
     local next_z         = nn.Mixture(3)({weight, a_t}) -- sum {weight[i] * x[i]}
+    next_z               = nn.CAddTable()({next_z, next_h})
 
     -- there will be 3 outputs
     local outputs = {next_c, next_h, next_z}
