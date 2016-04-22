@@ -167,6 +167,7 @@ function LstmLayer:updateGradInput(input, gradOutput)
     if not self.reverse then
         self.drnnState = {[T] = cloneList(self.initState, true)} -- zero gradient for the last frame
         for t = T, 1, -1 do
+            -- print(t)
             local doutput_t = gradOutput[t]
             table.insert(self.drnnState[t], doutput_t) -- dnext_c, dnext_h, doutput_t
             local dlst = self.clones[t]:updateGradInput({input[t], unpack(self.rnnState[t-1])}, self.drnnState[t]) -- dx, dprev_c, dprev_h
@@ -176,6 +177,7 @@ function LstmLayer:updateGradInput(input, gradOutput)
     else
         self.drnnState = {[1] = cloneList(self.initState, true)}
         for t = 1, T do
+            -- print(t)
             local doutput_t = gradOutput[t]
             table.insert(self.drnnState[t], doutput_t)
             local dlst = self.clones[t]:updateGradInput({input[t], unpack(self.rnnState[t+1])}, self.drnnState[t])

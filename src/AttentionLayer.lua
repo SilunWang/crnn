@@ -1,3 +1,5 @@
+require 'mixture'
+
 function makeAttUnit(nIn, nHidden, dropout)
     --[[ Create LSTM unit, adapted from https://github.com/karpathy/char-rnn/blob/master/model/LSTM.lua
     ARGS:
@@ -9,10 +11,9 @@ function makeAttUnit(nIn, nHidden, dropout)
     ]]
     dropout = dropout or 0
 
-    -- there will 3 inputs: x (input), prev_c, prev_h
-    local x, prev_c, prev_h = nn.Identity()(), nn.Identity()(), nn.Identity()()
-    local inputs = {x, prev_c, prev_h}
-    -- x = nn.Reshape(nIn, true)(x)
+    -- there will 3 inputs: x (input feature table (26 len)), prev_c, prev_h
+    local x, a, prev_c, prev_h = nn.Identity()(), nn.Identity()(), nn.Identity()(), nn.Identity()()
+    local inputs = {x, a, prev_c, prev_h}
     -- Construct the unit structure
     -- apply dropout, if any
     if dropout > 0 then x = nn.Dropout(dropout)(x) end
@@ -29,7 +30,7 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- decode the write inputs
     local in_transform   = nn.Narrow(2, 3*nHidden+1, nHidden)(all_input_sums)
     in_transform         = nn.Tanh()(in_transform)
-    local dot            = nn.CMulTable(){prev_h, x}
+    local dot            = nn.Mixture(3){prev_h, a}
     local weight         = nn.SoftMax()(dot)  -- exp(e) / sum {exp(e)}
     -- perform the LSTM update
     local next_c         = nn.CAddTable()({
@@ -39,7 +40,8 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- gated cells from the output
     local next_h         = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})
     -- y (output)
-    local next_z         = nn.CMulTable()({weight, x}) -- weight * x
+    local a_t            = nn.Transpose({2, 3})(a)
+    local next_z         = nn.Mixture(3)({weight, a_t}) -- sum {weight[i] * x[i]}
 
     -- there will be 3 outputs
     local outputs = {next_c, next_h, next_z}
@@ -122,9 +124,9 @@ end
 
 function AttentionLayer:updateOutput(input)
     self.output = {}
-    local T = #input
-    local batchSize = input[1]:size(1)
-    -- print(input:size())
+    local T = input:size(2)
+    local batchSize = input:size(1)
+    -- print(input:size(2))
     self.initState[1]:resize(batchSize, self.nHidden):fill(0)
     self.initState[2]:resize(batchSize, self.nHidden):fill(0)
     if #self.clones == 0 then
@@ -133,12 +135,15 @@ function AttentionLayer:updateOutput(input)
 
     if not self.reverse then
         self.rnnState = {[0] = cloneList(self.initState, true)}
+        -- a, b = unpack(self.rnnState[0])
+        -- print(a:size())
         for t = 1, T do
             local lst
             if self.train then
-                lst = self.clones[t]:forward({input[t], unpack(self.rnnState[t-1])})
+                lst = self.clones[t]:forward({input:select(2,t), input, unpack(self.rnnState[t-1])})
             else
-                lst = self.AttUnit:forward({input[t], unpack(self.rnnState[t-1])})
+                -- print(input:size())
+                lst = self.AttUnit:forward({input:select(2,t), input, unpack(self.rnnState[t-1])})
                 lst = cloneList(lst)
             end
             self.rnnState[t] = {lst[1], lst[2]} -- next_c, next_h
@@ -149,9 +154,9 @@ function AttentionLayer:updateOutput(input)
         for t = T, 1, -1 do
             local lst
             if self.train then
-                lst = self.clones[t]:forward({input[t], unpack(self.rnnState[t+1])})
+                lst = self.clones[t]:forward({input:select(2,t), input, unpack(self.rnnState[t+1])})
             else
-                lst = self.AttUnit:forward({input[t], unpack(self.rnnState[t+1])})
+                lst = self.AttUnit:forward({input:select(2,t), input, unpack(self.rnnState[t+1])})
                 lst = cloneList(lst)
             end
             self.rnnState[t] = {lst[1], lst[2]}
@@ -163,42 +168,45 @@ end
 
 
 function AttentionLayer:updateGradInput(input, gradOutput)
-    -- assert(#input == #gradOutput)
-    local T = #input
-
+    assert(input:size(2) == #gradOutput)
+    local T = input:size(2)
+    self.gradInput = torch.CudaTensor(input:size())
     if not self.reverse then
         self.drnnState = {[T] = cloneList(self.initState, true)} -- zero gradient for the last frame
         for t = T, 1, -1 do
             local doutput_t = gradOutput[t]
             table.insert(self.drnnState[t], doutput_t) -- dnext_c, dnext_h, doutput_t
-            local dlst = self.clones[t]:updateGradInput({input[t], unpack(self.rnnState[t-1])}, self.drnnState[t]) -- dx, dprev_c, dprev_h
-            self.drnnState[t-1] = {dlst[2], dlst[3]}
-            self.gradInput[t] = dlst[1]
+            local dlst = self.clones[t]:updateGradInput({input:select(2,t), input, unpack(self.rnnState[t-1])}, self.drnnState[t]) -- dx, dprev_c, dprev_h
+            -- print(t)
+            self.drnnState[t-1] = {dlst[3], dlst[4]}
+            -- print(dlst[2]:size())
+            self.gradInput:select(2,t):copy(dlst[1])
         end
     else
         self.drnnState = {[1] = cloneList(self.initState, true)}
         for t = 1, T do
             local doutput_t = gradOutput[t]
             table.insert(self.drnnState[t], doutput_t)
-            local dlst = self.clones[t]:updateGradInput({input[t], unpack(self.rnnState[t+1])}, self.drnnState[t])
-            self.drnnState[t+1] = {dlst[2], dlst[3]}
-            self.gradInput[t] = dlst[1]
+            local dlst = self.clones[t]:updateGradInput({input:select(2,t), input, unpack(self.rnnState[t+1])}, self.drnnState[t])
+            -- print(t)
+            self.drnnState[t+1] = {dlst[3], dlst[4]}
+            -- print(dlst[2]:size())
+            self.gradInput:select(2,t):copy(dlst[1])
         end
     end
-    
     return self.gradInput
 end
 
 
 function AttentionLayer:accGradParameters(input, gradOutput, scale)
-    local T = #input
+    local T = input:size(2)
     if not self.reverse then
         for t = 1, T do
-            self.clones[t]:accGradParameters({input[t], unpack(self.rnnState[t-1])}, self.drnnState[t], scale)
+            self.clones[t]:accGradParameters({input:select(2,t), input, unpack(self.rnnState[t-1])}, self.drnnState[t], scale)
         end
     else
         for t = T, 1, -1 do
-            self.clones[t]:accGradParameters({input[t], unpack(self.rnnState[t+1])}, self.drnnState[t], scale)
+            self.clones[t]:accGradParameters({input:select(2,t), input, unpack(self.rnnState[t+1])}, self.drnnState[t], scale)
         end
     end
 end

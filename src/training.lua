@@ -18,12 +18,16 @@ function trainModel(model, criterion, trainSet, testSet)
             end
             gradParams:zero()
             local outputBatch = model:forward(inputBatch)
+            -- print(inputBatch:size())
+            -- print(targetBatch:size())
             local f = criterion:forward(outputBatch, targetBatch)
-            model:backward(inputBatch, criterion:backward(outputBatch, targetBatch))
+            local cc = criterion:backward(outputBatch, targetBatch)
+            model:backward(inputBatch, cc)
             gradParams:div(nFrame)
             f = f / nFrame
             return f, gradParams
         end
+        -- print('end')
         local _, loss = optimMethod(feval, params, optimState); loss = loss[1]
         return loss
     end
@@ -40,13 +44,14 @@ function trainModel(model, criterion, trainSet, testSet)
         -- batch feed forward
         local batchSize = gConfig.valBatchSize
         local nFrame = input:size(1)
-        print(nFrame)
+        -- print(nFrame)
         local output = torch.Tensor(nFrame, gConfig.maxT, gConfig.nClasses+1)
         for i = 1, nFrame, batchSize do
             local actualBatchSize = math.min(batchSize, nFrame-i+1)
             local inputBatch = input:narrow(1,i,actualBatchSize)
             local outputBatch = model:forward(inputBatch)
-            print(i)
+            -- print(outputBatch:size())
+            -- print(actualBatchSize)
             output:narrow(1,i,actualBatchSize):copy(outputBatch)
         end
 
