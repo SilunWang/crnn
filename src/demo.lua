@@ -33,7 +33,7 @@ loadModelState(model, snapshot)
 model:evaluate()
 print(string.format('Model loaded from %s', modelLoadPath))
 
-local imagePath = '../data/demo.png'
+local imagePath = '../data/795.jpg'
 local img = loadAndResizeImage(imagePath)
 local text, raw = recognizeImageLexiconFree(model, img)
 print(string.format('Recognized text: %s (raw: %s)', text, raw))
