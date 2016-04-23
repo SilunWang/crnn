@@ -58,11 +58,12 @@ function makeAttUnit(nIn, nHidden, dropout)
     -- z_t = sum(weight[i] * a[i])  batch * nHidden
     local z_t            = nn.Mixture(3)({weight, a_t})
     -- wz = W * z_t
-    local wz             = nn.Linear(nHidden, nHidden)(z_t)
+    -- local wz             = nn.Linear(nHidden, nHidden)(z_t)
     -- wh = W * h_t
-    local wh             = nn.Linear(nHidden, nHidden)(next_h)
+    -- local wh             = nn.Linear(nHidden, nHidden)(next_h)
     -- y = W1 * z_t + W2 * h_t
-    local y              = nn.Tanh()(nn.CAddTable()({wz, wh}))
+    -- local y              = nn.Tanh()(nn.CAddTable()({wz, wh}))
+    local y = nn.Tanh()(nn.Linear(nHidden * 2, nHidden)(nn.JoinTable(2)({z_t, next_h})))
 
     -- there will be 3 outputs
     local outputs = {next_c, next_h, y}
