@@ -7,8 +7,8 @@ function getConfig()
         nTestDisplay     = 15,
         trainBatchSize   = 64,
         valBatchSize     = 256,
-        snapshotInterval = 10000,
-        maxIterations    = 2000000,
+        snapshotInterval = 1000,
+        maxIterations    = 200000,
         optimMethod      = optim.adadelta,
         optimConfig      = {},
         trainSetPath     = '../data/synth90k_train_lmdb/data.mdb',
@@ -26,7 +26,7 @@ function createModel(config)
     local ks = {3, 3, 3, 3, 3, 3, 2}
     local ps = {1, 1, 1, 1, 1, 1, 0}
     local ss = {1, 1, 1, 1, 1, 1, 1}
-    local nm = {64, 128, 256, 256, 512, 512, 512}
+    local nm = {64, 128, 256, 256, 256, 256, 256}
     local nh = {256, 256}
 
     function convRelu(i, batchNormalization)
@@ -65,12 +65,12 @@ function createModel(config)
     model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 256x4x?
     model:add(convRelu(5, true))
     model:add(convRelu(6))
-    model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 512x2x26
-    model:add(convRelu(7, true))                         -- 512x1x26
-    model:add(nn.View(512, -1):setNumInputDims(3))       -- 512x26
-    model:add(nn.Transpose({2, 3}))                      -- 26x512
-    model:add(nn.AttentionLayer(512, 512, nt, 0, false))
-    model:add(bidirectionalLSTM(512, 256, 256, nt))
+    model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 256x2x26
+    model:add(convRelu(7, true))                         -- 256x1x26
+    model:add(nn.View(256, -1):setNumInputDims(3))       -- 256x26
+    model:add(nn.Transpose({2, 3}))                      -- 26x256
+    model:add(nn.AttentionLayer(256, 256, nt, 0, false))
+    model:add(bidirectionalLSTM(256, 256, 256, nt))
     model:add(bidirectionalLSTM(256, 256,  nl, nt))
     model:add(nn.SharedParallelTable(nn.LogSoftMax(), nt))
     model:add(nn.JoinTable(1, 1))
