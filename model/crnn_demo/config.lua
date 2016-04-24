@@ -11,8 +11,8 @@ function getConfig()
         maxIterations    = 200000,
         optimMethod      = optim.adadelta,
         optimConfig      = {},
-        trainSetPath     = '../data/synth90k_train_lmdb/data.mdb',
-        valSetPath       = '../data/synth90k_val_lmdb/data.mdb',
+        trainSetPath     = '../data/synth90k_train_2m/data.mdb',
+        valSetPath       = '../data/synth90k_valid_10000/data.mdb',
     }
     return config
 end
