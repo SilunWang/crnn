@@ -15,6 +15,7 @@ require('DatasetLmdb')
 require('LstmLayer')
 require('BiRnnJoin')
 require('SharedParallelTable')
+require('GridLstmLayer')
 
 
 -- configurations
