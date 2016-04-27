@@ -7,8 +7,8 @@ function getConfig()
         nTestDisplay     = 15,
         trainBatchSize   = 64,
         valBatchSize     = 256,
-        snapshotInterval = 10000,
-        maxIterations    = 2000000,
+        snapshotInterval = 1000,
+        maxIterations    = 1000000,
         optimMethod      = optim.adadelta,
         optimConfig      = {},
         trainSetPath     = '../data/synth90k_train_lmdb/data.mdb',
@@ -16,7 +16,6 @@ function getConfig()
     }
     return config
 end
-
 
 function createModel(config)
     local nc = config.nClasses
@@ -26,7 +25,7 @@ function createModel(config)
     local ks = {3, 3, 3, 3, 3, 3, 2}
     local ps = {1, 1, 1, 1, 1, 1, 0}
     local ss = {1, 1, 1, 1, 1, 1, 1}
-    local nm = {64, 128, 256, 256, 512, 512, 512}
+    local nm = {64, 128, 256, 256, 256, 256, 256}
     local nh = {256, 256}
 
     function convRelu(i, batchNormalization)
@@ -51,6 +50,15 @@ function createModel(config)
         return blstm
     end
 
+    function bidirectionalGridLSTM(nIn, nHidden, nOut, maxT, nLevel)
+        local fwdLstm = nn.GridLstmLayer(nIn, nHidden, maxT, nLevel, 0, false, true)
+        local bwdLstm = nn.GridLstmLayer(nIn, nHidden, maxT, nLevel, 0, true, true)
+        local ct = nn.ConcatTable():add(fwdLstm):add(bwdLstm)
+        local blstm = nn.Sequential():add(ct):add(nn.BiRnnJoin(nHidden, nOut, maxT))
+        return blstm
+    end
+
+
     -- model and criterion
     local model = nn.Sequential()
     model:add(nn.Copy('torch.ByteTensor', 'torch.CudaTensor', false, true))
@@ -65,13 +73,14 @@ function createModel(config)
     model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 256x4x?
     model:add(convRelu(5, true))
     model:add(convRelu(6))
-    model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 512x2x26
-    model:add(convRelu(7, true))                         -- 512x1x26
-    model:add(nn.View(512, -1):setNumInputDims(3))       -- 512x26
-    model:add(nn.Transpose({2, 3}))                      -- 26x512
+    model:add(cudnn.SpatialMaxPooling(2, 2, 1, 2, 1, 0)) -- 256x2x26
+    model:add(convRelu(7, true))                         -- 256x1x26
+    model:add(nn.View(256, -1):setNumInputDims(3))       -- 256x26
+    model:add(nn.Transpose({2, 3}))                      -- 26x256
     model:add(nn.SplitTable(2, 3))
-    model:add(bidirectionalLSTM(512, 256, 256, nt))
-    model:add(bidirectionalLSTM(256, 256,  nl, nt))
+	--model:add(nn.GridLstmLayer(256, 256, nl, nt, 2, 0, false, true))
+    model:add(bidirectionalGridLSTM(256, 256, nl, nt, 2))
+    --model:add(bidirectionalGridLSTM(256, 256,  nl, nt, 2))
     model:add(nn.SharedParallelTable(nn.LogSoftMax(), nt))
     model:add(nn.JoinTable(1, 1))
     model:add(nn.View(-1, nl):setNumInputDims(1))
