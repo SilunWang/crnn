@@ -8,11 +8,11 @@ function getConfig()
         trainBatchSize   = 64,
         valBatchSize     = 256,
         snapshotInterval = 1000,
-        maxIterations    = 200000,
+        maxIterations    = 1000000,
         optimMethod      = optim.adadelta,
         optimConfig      = {},
-        trainSetPath     = '../data/synth90k_train_2m/data.mdb',
-        valSetPath       = '../data/synth90k_valid_10000/data.mdb',
+        trainSetPath     = '../data/synth90k_train_lmdb/data.mdb',
+        valSetPath       = '../data/synth90k_val_lmdb/data.mdb',
     }
     return config
 end
